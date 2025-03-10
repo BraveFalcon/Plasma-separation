@@ -73,8 +73,12 @@ def import_from_comsol_file(filepath):
     ts = np.sort(df["t"].unique()) * 1e6  # Convert seconds to microseconds
     ions_mass = np.zeros(N_ions)
 
+    valid_indices = []
     for i, index in enumerate(ion_indices):
         ion_data = df[df["Index"] == index]
+        if ion_data[["qx (cm)", "qy (cm)", "qz (cm)"]].isnull().values.any():
+            continue  # Skip ions with NaN positions
+        valid_indices.append(i)
         ions_mass[i] = ion_data["cpt.mp (u)"].values[0]
         poses[i, :, 0] = ion_data["qx (cm)"].values
         poses[i, :, 1] = ion_data["qy (cm)"].values
@@ -83,6 +87,9 @@ def import_from_comsol_file(filepath):
         vels[i, :, 1] = ion_data["cpt.vy (m/s)"].values
         vels[i, :, 2] = ion_data["cpt.vz (m/s)"].values
 
+    poses = poses[valid_indices]
+    vels = vels[valid_indices]
+    ions_mass = ions_mass[valid_indices]
     poses = IonTrajectories.cartesian_to_cylindrical(poses)
     return IonTrajectories(poses, vels, ts, ions_mass)
 
@@ -118,7 +125,7 @@ def import_from_openmm_file(filepath):
             poses - np.array(f["cell_lengths"]) / 2.0
         ) / 1e7  # subtraction of the center vector of the computational cell and conversion from nm to cm
         # transform cartesian coordinates --> cylindrical coordinates
-        
+
         # load ions vels
         vels = np.array(f["velocities"]) * 1e-9 / 1e-12
         vels = np.moveaxis(vels, (0, 1, 2), (0, 2, 1))
@@ -225,7 +232,13 @@ class IonTrajectories:
         """
         initial_velocities = self.vels[:, 0, :]
         velocity_norms = np.linalg.norm(initial_velocities, axis=1)
-        kin_energies = 0.5 * self.ions_mass * scipy.constants.atomic_mass * velocity_norms**2 / scipy.constants.e
+        kin_energies = (
+            0.5
+            * self.ions_mass
+            * scipy.constants.atomic_mass
+            * velocity_norms**2
+            / scipy.constants.e
+        )
         ax.hist(kin_energies, bins=10, color="blue", alpha=0.7)
         ax.set_xlabel("Kinetic Energy (eV)")
         ax.set_ylabel("Frequency")
