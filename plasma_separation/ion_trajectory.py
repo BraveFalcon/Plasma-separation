@@ -82,10 +82,6 @@ def import_from_comsol_file(filepath):
         vels[i, :, 0] = ion_data["cpt.vx (m/s)"].values
         vels[i, :, 1] = ion_data["cpt.vy (m/s)"].values
         vels[i, :, 2] = ion_data["cpt.vz (m/s)"].values
-        mass_kg = (
-            ions_mass[i] * scipy.constants.atomic_mass
-        )  # Convert atomic mass unit to kg
-        vels[i] = 0.5 * mass_kg * vels[i] ** 2 / scipy.constants.e  # Convert m/s to eV
 
     poses = IonTrajectories.cartesian_to_cylindrical(poses)
     return IonTrajectories(poses, vels, ts, ions_mass)
@@ -105,35 +101,33 @@ def import_from_openmm_file(filepath):
     poses = []
     vels = []
     ts = []
-    
+
     with h5py.File(filepath, "r") as f:
         # load ion mases from topology
-        topology = np.array(f['topology'])[0].decode('UTF-8').split()
-        N_atoms = np.array(f['coordinates']).shape[1] 
+        topology = np.array(f["topology"])[0].decode("UTF-8").split()
+        N_atoms = np.array(f["coordinates"]).shape[1]
         for i in range(N_atoms):
-          ions_mass.append(int(topology[10+i*6][1:-2]))
+            ions_mass.append(int(topology[10 + i * 6][1:-2]))
         ions_mass = np.array(ions_mass)
         # load ions poses
-        poses = np.array(f['coordinates'])
-        poses = np.moveaxis(poses, (0,1,2), (1,0,2)) #convert shape from (N_frames, N_ions, 3) to (N_ions, N_frames, 3)
-        poses = (poses-np.array(f['cell_lengths'])/2.0) / 1e7  #subtraction of the center vector of the computational cell and conversion from nm to cm
+        poses = np.array(f["coordinates"])
+        poses = np.moveaxis(
+            poses, (0, 1, 2), (1, 0, 2)
+        )  # convert shape from (N_frames, N_ions, 3) to (N_ions, N_frames, 3)
+        poses = (
+            poses - np.array(f["cell_lengths"]) / 2.0
+        ) / 1e7  # subtraction of the center vector of the computational cell and conversion from nm to cm
         # transform cartesian coordinates --> cylindrical coordinates
-        x, y, z = (
-            poses[:, :, 0],
-            poses[:, :, 1],
-            poses[:, :, 2],
-        )
-        r = np.sqrt(x**2 + y**2)
-        phi = np.arctan2(y, x)
-        poses = np.stack((r, phi, z), axis=-1)
-
-        #load ions vels
-        vels = np.array(f['velocities']) * 1e-9 / 1e-12
-        vels = np.moveaxis(vels, (0,1,2), (0,2,1))
-        vels = 0.5 * ions_mass * scipy.constants.atomic_mass * vels**2 / scipy.constants.e  # Convert m/s to eV
-        vels = np.moveaxis(vels, (0,1,2), (1,2,0)) #convert shape to (N_ions, N_frames, 3)
         
-        ts = np.array(f['time']) / 1e6 #convert ps to micro seconds
+        # load ions vels
+        vels = np.array(f["velocities"]) * 1e-9 / 1e-12
+        vels = np.moveaxis(vels, (0, 1, 2), (0, 2, 1))
+        vels = np.moveaxis(
+            vels, (0, 1, 2), (1, 2, 0)
+        )  # convert shape to (N_ions, N_frames, 3)
+
+        ts = np.array(f["time"]) / 1e6  # convert ps to micro seconds
+    poses = IonTrajectories.cartesian_to_cylindrical(poses)
     return IonTrajectories(poses, vels, ts, ions_mass)
 
 
@@ -145,7 +139,7 @@ class IonTrajectories:
 
         Parameters:
         poses (np.array): Array of positions of the ions in cylindrical coordinates (N_ions, N_frames, 3) in cm.
-        vels (np.array): Array of velocities of the ions in Cartesian coordinates (N_ions, N_frames, 3) in eV.
+        vels (np.array): Array of velocities of the ions in Cartesian coordinates (N_ions, N_frames, 3) in m/s.
         ts (np.array): Array of time steps (N_frames) in μs.
         ions_mass (np.array): Array of ion masses (N_ions) in unified atomic mass unit (u).
         """
@@ -229,9 +223,10 @@ class IonTrajectories:
         Parameters:
         ax (matplotlib.axes._subplots.AxesSubplot): Matplotlib axes object.
         """
-        initial_velocities = self.vels[:, 0, :]**0.5
+        initial_velocities = self.vels[:, 0, :]
         velocity_norms = np.linalg.norm(initial_velocities, axis=1)
-        ax.hist(velocity_norms**2, bins=10, color="blue", alpha=0.7)
+        kin_energies = 0.5 * self.ions_mass * scipy.constants.atomic_mass * velocity_norms**2 / scipy.constants.e
+        ax.hist(kin_energies, bins=10, color="blue", alpha=0.7)
         ax.set_xlabel("Kinetic Energy (eV)")
         ax.set_ylabel("Frequency")
         ax.set_title("Initial Kinetic Energy Distribution")
@@ -243,7 +238,7 @@ class IonTrajectories:
         Parameters:
         ax (matplotlib.axes._subplots.AxesSubplot): Matplotlib axes object.
         """
-        initial_velocities = self.vels[:, 0, :]**0.5
+        initial_velocities = self.vels[:, 0, :]
         velocity_norms = np.linalg.norm(initial_velocities, axis=1)
         angles = np.arccos(
             initial_velocities[:, 2] / velocity_norms
