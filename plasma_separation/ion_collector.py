@@ -1,7 +1,8 @@
 import numpy as np
 from scipy.interpolate import interp1d
 from scipy.optimize import minimize
-from ion_trajectory import IonTrajectories
+from plasma_separation.ion_trajectory import IonTrajectories
+import matplotlib.pyplot as plt  # Add this import for plotting
 
 
 def classification_loss(y_true, y_pred):
@@ -56,27 +57,26 @@ class IonCollector:
         self.collected_ions_mass = np.empty(0)  # (N_ions) array of collected ions mass
 
         # Collect ions and calculate mass classes
-        self.collect_ions(ion_trajectory)
+        self.collect_ions()
         self.mass_classes = np.where(
             self.collected_ions_mass < self.mass_threshold, 1, 0
         )  # Light ions: 1, Heavy ions: 0
 
-    def collect_ions(self, ion_trajectory: IonTrajectories):
+    def collect_ions(self):
         """
         Collect ions that pass through the r=R surface during their first pass and within the specified region.
 
         Parameters:
         ion_trajectory (IonTrajectories): The ions trajectory data.
         """
-        self.ion_trajectory = ion_trajectory
         r_collector = self.R
-        n_ions = ion_trajectory.poses.shape[0]
+        n_ions = self.ion_trajectory.poses.shape[0]
         self.collected_ions_pos = np.empty((n_ions, 2))
         self.collected_ions_mass = np.empty(n_ions)
 
         for i in range(n_ions):
-            ion_positions = ion_trajectory.poses[i]
-            ion_mass = ion_trajectory.ions_mass[i]
+            ion_positions = self.ion_trajectory.poses[i]
+            ion_mass = self.ion_trajectory.ions_mass[i]
             r = ion_positions[:, 0]
             phi = ion_positions[:, 1]
             z = ion_positions[:, 2]
@@ -91,11 +91,13 @@ class IonCollector:
 
             if first_pass_index < len(r):
                 if first_pass_index > 0:
-                    r1, z1, phi1 = ion_positions[first_pass_index - 1]
-                    r2, z2, phi2 = ion_positions[first_pass_index]
+                    r1, phi1, z1  = ion_positions[first_pass_index - 1]
+                    r2, phi2, z2  = ion_positions[first_pass_index]
                     z_c = np.interp(r_collector, [r1, r2], [z1, z2])
                     phi_c = np.interp(r_collector, [r1, r2], [phi1, phi2])
                 else:
+                    print(i)
+                    print(first_pass_index)
                     raise Exception("Collector is too close to the injection point.")
 
                 self.collected_ions_pos[i] = [phi_c, z_c]
@@ -232,3 +234,61 @@ class IonCollector:
                 break
             prev_loss = current_loss
         return self.R, self.phi
+
+    def plot_collected_ions(self):
+        """
+        Plot collected ions in (z, R*phi) coordinates. Color dots according to ion mass using rainbow colormap.
+        Include collector R in title. Plot phi_threshold as a black -- line. Add histogram with R*phi ions deposition.
+        """
+        z = self.collected_ions_pos[:, 1]
+        R_phi = self.R * self.collected_ions_pos[:, 0]
+        masses = self.collected_ions_mass
+
+        fig, ax = plt.subplots(
+            1, 2, figsize=(12, 6), gridspec_kw={"width_ratios": [3, 1]}, layout="constrained"
+        )
+
+        # Scatter plot
+        scatter = ax[0].scatter(z, R_phi, c=masses, cmap="rainbow", marker="o", alpha=0.5)
+        ax[0].set_title(f"Collected Ions (R={self.R} cm)")
+        ax[0].set_xlabel("z (cm)")
+        ax[0].set_ylabel("R*phi (cm)")
+        plt.colorbar(scatter, ax=ax[0], label="Ion Mass (u)")
+
+        # Plot phi_threshold line
+        phi_threshold = self.phi
+        ax[0].axhline(
+            y=self.R * phi_threshold,
+            color="black",
+            linestyle="--",
+            label="phi_threshold",
+        )
+        ax[0].legend()
+
+
+        # Histogram
+        light_ions = R_phi[self.mass_classes == 1]
+        heavy_ions = R_phi[self.mass_classes == 0]
+        ax[1].hist(
+            light_ions,
+            bins=30,
+            alpha=0.5,
+            label="Light Ions",
+            color="blue",
+            orientation="horizontal",
+        )
+        ax[1].hist(
+            heavy_ions,
+            bins=30,
+            alpha=0.5,
+            label="Heavy Ions",
+            color="red",
+            orientation="horizontal",
+        )
+        ax[1].set_xlabel("Count")
+        ax[1].legend()
+
+        # Share y-axis
+        ax[1].sharey(ax[0])
+
+        return fig
