@@ -27,7 +27,7 @@ class IonCollector:
     def __init__(
         self,
         ion_trajectory: IonTrajectories,
-        mass_threshold,
+        mass_threshold=175,
         R=20,
         phi=np.pi / 2,
         z_min=-np.inf,
@@ -38,7 +38,7 @@ class IonCollector:
 
         Parameters:
         ion_trajectory (IonTrajectories): The ions trajectory data.
-        mass_threshold (float): The mass threshold to classify ions as light or heavy.
+        mass_threshold (float): The mass threshold to classify ions as light or heavy in u.
         R (float): The radius of the cylindrical collector in cm.
         phi (float): The angle that divides heavy and light ions in radians.
         z_min (float): The minimum z-coordinate for the collector region in cm.
