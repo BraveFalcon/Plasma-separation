@@ -90,7 +90,6 @@ def import_from_comsol_file(filepath):
     poses = poses[valid_indices]
     vels = vels[valid_indices]
     ions_mass = ions_mass[valid_indices]
-    poses = IonTrajectories.cartesian_to_cylindrical(poses)
     return IonTrajectories(poses, vels, ts, ions_mass)
 
 
@@ -124,7 +123,6 @@ def import_from_openmm_file(filepath):
         poses = (
             poses - np.array(f["cell_lengths"]) / 2.0
         ) / 1e7  # subtraction of the center vector of the computational cell and conversion from nm to cm
-        # transform cartesian coordinates --> cylindrical coordinates
 
         # load ions vels
         vels = np.array(f["velocities"]) * 1e-9 / 1e-12
@@ -134,7 +132,6 @@ def import_from_openmm_file(filepath):
         )  # convert shape to (N_ions, N_frames, 3)
 
         ts = np.array(f["time"]) / 1e6  # convert ps to micro seconds
-    poses = IonTrajectories.cartesian_to_cylindrical(poses)
     return IonTrajectories(poses, vels, ts, ions_mass)
 
 
@@ -145,7 +142,7 @@ class IonTrajectories:
         Initialize the IonTrajectories class with positions, velocities, time steps, and ion masses.
 
         Parameters:
-        poses (np.array): Array of positions of the ions in cylindrical coordinates (N_ions, N_frames, 3) in cm.
+        poses (np.array): Array of positions of the ions in Cartesian coordinates (N_ions, N_frames, 3) in cm.
         vels (np.array): Array of velocities of the ions in Cartesian coordinates (N_ions, N_frames, 3) in m/s.
         ts (np.array): Array of time steps (N_frames) in μs.
         ions_mass (np.array): Array of ion masses (N_ions) in unified atomic mass unit (u).
@@ -270,7 +267,7 @@ class IonTrajectories:
         cmap (matplotlib.colors.Colormap): Matplotlib colormap object.
         """
         colors = self._get_colors(cmap)
-        poses_cartesian = self.cylindrical_to_cartesian(self.poses)
+        poses_cartesian = self.poses  # Already in Cartesian coordinates
         for i, color in enumerate(colors):
             ax.plot(
                 poses_cartesian[i, :, 0],
@@ -293,7 +290,7 @@ class IonTrajectories:
         cmap (matplotlib.colors.Colormap): Matplotlib colormap object.
         """
         colors = self._get_colors(cmap)
-        poses_cartesian = self.cylindrical_to_cartesian(self.poses)
+        poses_cartesian = self.poses  # Already in Cartesian coordinates
         for i, color in enumerate(colors):
             ax.plot(
                 poses_cartesian[i, :, 0],
@@ -316,7 +313,7 @@ class IonTrajectories:
         colors = self._get_colors(cmap)
         for i, color in enumerate(colors):
             z = self.poses[i, :, 2]
-            phi = self.poses[i, :, 1]
+            phi = np.arctan2(self.poses[i, :, 1], self.poses[i, :, 0])
             ax.plot(z, phi, color=color, alpha=0.25)
         ax.set_xlabel("z (cm)")
         ax.set_ylabel("phi (rad)")

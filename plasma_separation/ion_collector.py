@@ -49,6 +49,7 @@ class IonCollector:
         self.z_min = z_min
         self.phi_min = phi_min
         self.ion_trajectory = ion_trajectory
+        self.ion_trajectory.poses_cyl = IonTrajectories.cartesian_to_cylindrical(ion_trajectory.poses)
         self.mass_threshold = mass_threshold
         # Initialize as empty numpy arrays
         self.collected_ions_pos = np.empty(
@@ -70,12 +71,12 @@ class IonCollector:
         ion_trajectory (IonTrajectories): The ions trajectory data.
         """
         r_collector = self.R
-        n_ions = self.ion_trajectory.poses.shape[0]
+        n_ions = self.ion_trajectory.poses_cyl.shape[0]
         self.collected_ions_pos = np.empty((n_ions, 2))
         self.collected_ions_mass = np.empty(n_ions)
 
         for i in range(n_ions):
-            ion_positions = self.ion_trajectory.poses[i]
+            ion_positions = self.ion_trajectory.poses_cyl[i]
             ion_mass = self.ion_trajectory.ions_mass[i]
             r = ion_positions[:, 0]
             phi = ion_positions[:, 1]
