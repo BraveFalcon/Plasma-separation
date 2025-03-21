@@ -120,9 +120,7 @@ def import_from_openmm_file(filepath):
         poses = np.moveaxis(
             poses, (0, 1, 2), (1, 0, 2)
         )  # convert shape from (N_frames, N_ions, 3) to (N_ions, N_frames, 3)
-        poses = (
-            poses - np.array(f["cell_lengths"]) / 2.0
-        ) / 1e7  # subtraction of the center vector of the computational cell and conversion from nm to cm
+        poses /= 1e7  # conversion from nm to cm
 
         # load ions vels
         vels = np.array(f["velocities"]) * 1e-9 / 1e-12
