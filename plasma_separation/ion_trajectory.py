@@ -113,7 +113,7 @@ def import_from_openmm_file(filepath):
         topology = np.array(f["topology"])[0].decode("UTF-8").split()
         N_atoms = np.array(f["coordinates"]).shape[1]
         for i in range(N_atoms):
-            ions_mass.append(int(topology[10 + i * 6][1:-2]))
+            ions_mass.append(int(float(topology[10 + i * 6][1:-2])))
         ions_mass = np.array(ions_mass)
         # load ions poses
         poses = np.array(f["coordinates"])
