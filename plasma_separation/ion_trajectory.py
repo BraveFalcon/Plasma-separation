@@ -11,6 +11,7 @@ import scipy.constants
 import os
 import sys
 import h5py
+import matplotlib.animation as animation
 
 
 _load_save_filename = "trajectories.npz"
@@ -378,6 +379,29 @@ class IonTrajectories:
         # TODO: fix. It should one colormap for all.
         norm = plt.Normalize(self.ions_mass.min(), self.ions_mass.max())
         return [cmap(norm(mass)) for mass in self.ions_mass]
+
+
+def animate_trajectories_2d(ax, ion_positions, ion_colors, frames_per_second):
+    """
+    Animate ion trajectories in a 2D plane.
+
+    Parameters:
+    ax (matplotlib.axes._subplots.AxesSubplot): Matplotlib axes object.
+    ion_positions (np.array): Array of ion positions in 2D (N_ions, N_frames, 2).
+    ion_colors (list): List of colors for each ion.
+    frames_per_second (int): Number of frames per second for the animation.
+    """
+    lines = [ax.plot([], [], color=color)[0] for color in ion_colors]
+
+    def update(num, data, lines):
+        for line, ion_data in zip(lines, data):
+            line.set_data(ion_data[:, :num])
+        return lines
+
+    ani = animation.FuncAnimation(
+        ax.figure, update, frames=ion_positions.shape[1], fargs=(ion_positions, lines), interval=1000/frames_per_second, blit=True
+    )
+    return ani
 
 
 if __name__ == "__main__":
