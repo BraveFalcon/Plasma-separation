@@ -124,6 +124,32 @@ class IonCollector:
             > self.phi,  # Light ions: True, Heavy ions: False
         )
 
+    def quality_smirnov(self):
+        '''
+        Calculates metrics from
+        V. S. Smirnov, R. O. Egorov, S. A. Kislenko, N. N. Antonov, V. P. Smirnov, A. V. Gavrikov; 
+        Simulation of ion flux of actinides and uranium fission products in the plasma separator with a potential well.
+        Phys. Plasmas 1 November 2020; 27 (11): 113503. https://doi.org/10.1063/5.0020001
+        '''
+    
+        actinides_phis = self.collected_ions_pos[self.collected_ions_mass >= 235, 0]
+        actinides_center_phi = np.arctan2(np.mean(np.sin(actinides_phis)), np.mean(np.cos(actinides_phis)))
+    
+        heavy_phis = self.collected_ions_pos[(self.collected_ions_mass >= 120) * (self.collected_ions_mass <= 160), 0]
+        heavy_center_phi = np.arctan2(np.mean(np.sin(heavy_phis)), np.mean(np.cos(heavy_phis)))
+    
+        L = self.R * (actinides_center_phi - heavy_center_phi) 
+    
+        # TODO: calculate d for actinides and heavy
+        
+        percent = 90
+        d_actinides =  2.0 * self.R *  np.percentile(np.abs(actinides_phis - actinides_center_phi), percent, method = 'inverted_cdf') 
+        d_heavy =  2.0 * self.R * np.percentile(np.abs(heavy_phis - heavy_center_phi), percent, method = 'inverted_cdf') 
+        
+        quality = L / (d_actinides + d_heavy) * 2.0
+        
+        return quality, L, d_actinides, d_heavy
+    
     def optimize_phi(
         self,
         loss_function,
