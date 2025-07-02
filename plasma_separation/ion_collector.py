@@ -149,10 +149,13 @@ class IonCollector:
         
         return quality, L, d_actinides, d_heavy
    
-    def quality_purification_degree(self):
+    def quality_purification_degree(self, eps = 1e-3):
         '''
         Calculates fraction of heavy particles in a spot of light particles and vice versa.
         For this purpose phi is optimised.
+
+        Parameters:
+        eps (float): Step size used to calculate gradient in phi optimization procedure.
         '''
         actinides_phis = self.collected_ions_pos[self.collected_ions_mass >= 235, 0]
         actinides_center_phi = np.arctan2(np.mean(np.sin(actinides_phis)), np.mean(np.cos(actinides_phis)))
@@ -177,7 +180,7 @@ class IonCollector:
             #loss = abs(N_heavy_in_actinides - N_actinides_in_heavy)
             return loss
         
-        self.phi = self.optimize_phi(loss_function, phi_0, phi_min = heavy_center_phi, phi_max = actinides_center_phi) 
+        self.phi = self.optimize_phi(loss_function, phi_0, phi_min = heavy_center_phi, phi_max = actinides_center_phi, eps = eps) 
         #self.phi = bisect(objective, heavy_center_phi, actinides_center_phi) # this optimization method may be better
 
         classes_true = self.mass_classes.astype(bool)
@@ -199,6 +202,7 @@ class IonCollector:
         phi_0=np.pi / 2,
         phi_min=0,
         phi_max=2 * np.pi,
+        eps = 1e-3
     ):
         """
         Optimize the phi parameter to minimize the loss function for ion classification.
@@ -208,6 +212,7 @@ class IonCollector:
         phi_0 (float): Initial guess for phi.
         phi_min (float): Minimum value for phi.
         phi_max (float): Maximum value for phi.
+        eps (float): Step size for gradient calculation in minimization algorithm.
         """
 
         # TODO: filtering should be corrected, as it produces errors
@@ -221,7 +226,7 @@ class IonCollector:
             y_pred = self.identify_classes().astype(bool)
             return loss_function(y_true, y_pred, phi)
 
-        result = minimize(objective, phi_0, bounds=[(phi_min, phi_max)], options={'disp': True, 'ftol': 1e-8, 'eps': 1e-4}, method = "SLSQP")
+        result = minimize(objective, phi_0, bounds=[(phi_min, phi_max)], options={'disp': True, 'ftol': 1e-8, 'eps': eps}, method = "SLSQP")
         self.phi = result.x[0]
         return self.phi
 
