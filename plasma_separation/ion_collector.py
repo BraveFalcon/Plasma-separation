@@ -119,7 +119,7 @@ class IonCollector:
         np.ndarray: Array of class labels (0 for heavy ions, 1 for light ions, 2 for uncollected ions).
         """
         return np.where(
-            self.collected_ions_pos[:, 0] is None,
+            np.isnan(self.collected_ions_pos[:, 0]),
             2,  # Uncollected ions
             self.collected_ions_pos[:, 0]
             < self.phi,  # Light ions: True, Heavy ions: False
