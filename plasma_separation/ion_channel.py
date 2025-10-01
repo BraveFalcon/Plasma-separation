@@ -11,7 +11,8 @@ class IonChannel:
         ion_trajectory: IonTrajectories,
         width = 5.0,
         ionizer_R = 15.0,
-        indent = 10.0
+        indent = 4.0,
+        channel_len = 10.0
     ):
         """
         Initialize the IonChannel class with width, ionizer radius, ion trajectory data.
@@ -24,6 +25,7 @@ class IonChannel:
         self.width = width
         self.ionizer_R = ionizer_R
         self.indent = indent
+        self.len = channel_len
         self.ion_trajectory = ion_trajectory
         self.ion_trajectory.poses_cyl = IonTrajectories.cartesian_to_cylindrical(ion_trajectory.poses)
         # Initialize as empty numpy arrays
@@ -31,7 +33,7 @@ class IonChannel:
             (0, 2)
         )  # (N_ions, 2) array of phi, z coordinates of collected ions. If ion is not collected, the value is None.
         self.ions_pass_flag = np.empty(0)  # (N_ions) array of booleans (1 if ion entered the channel, 0 if not)
-
+        self.stayed_flag = np.empty(0) # (N_ions) array of booleans (1 if ion stayed in ionizer till end, 0 if not)
         # Collect ions that entered the channel or deposited on its walls
         self.collect_ions()
 
@@ -44,9 +46,11 @@ class IonChannel:
         ion_trajectory (IonTrajectories): The ions trajectory data.
         """
         r_ionizer = self.ionizer_R
+        channel_len = self.len
         n_ions = self.ion_trajectory.poses.shape[0]
         self.collected_ions_pos = np.empty((n_ions, 3))
         self.ions_pass_flag = np.empty(n_ions)
+        self.stayed_flag = np.empty(n_ions)
 
         for i in range(n_ions):
             ion_positions = self.ion_trajectory.poses[i]
@@ -60,6 +64,7 @@ class IonChannel:
                 r[first_wall_pass_index] < r_ionizer
                 or abs(y[first_wall_pass_index]) < self.width /2
                 or x[first_wall_pass_index] < (r_ionizer**2 - 0 * (self.width/2)**2)**0.5
+                or x[first_wall_pass_index] > r_ionizer + channel_len
             ):
                 first_wall_pass_index += 1
  
@@ -88,8 +93,11 @@ class IonChannel:
                 self.ions_pass_flag[i] = 1
             else:
                 self.ions_pass_flag[i] = 0
-
-        return self.ions_pass_flag ,self.collected_ions_pos
+            if r[-1] <r_ionizer:
+                self.stayed_flag[i] = 1
+            else:
+                self.stayed_flag[i] = 0
+        return self.stayed_flag, self.ions_pass_flag, self.collected_ions_pos
 
 
     def plot_collected_ions(self):
