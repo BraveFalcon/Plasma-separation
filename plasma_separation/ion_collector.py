@@ -96,7 +96,13 @@ class IonCollector:
                     r1, phi1, z1  = ion_positions[first_pass_index - 1]
                     r2, phi2, z2  = ion_positions[first_pass_index]
                     z_c = np.interp(r_collector, [r1, r2], [z1, z2])
+                    phi1 =phi1 % (2 * np.pi)
+                    phi2 =phi2 % (2 * np.pi)
                     phi_c = np.interp(r_collector, [r1, r2], [phi1, phi2])
+                    if phi_c > np.pi:
+                        phi_c -= 2.0 * np.pi
+                    elif phi_c < -np.pi:
+                        phi_c += 2.0 * np.pi
                 else:
                     print(i)
                     print(first_pass_index)
