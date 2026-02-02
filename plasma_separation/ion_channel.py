@@ -77,10 +77,10 @@ class IonChannel:
 
             else:
                 self.collected_ions_pos[i] = [None, None, None]
-        
+        '''
         x_dep = self.collected_ions_pos[:,0]
         self.deposition_len = np.max(x_dep[~np.isnan(x_dep)])
-
+        '''
         for i in range(n_ions):
             
             ion_positions = self.ion_trajectory.poses[i]
@@ -89,7 +89,7 @@ class IonChannel:
             z = ion_positions[:, 2]
             r = self.ion_trajectory.poses_cyl[i][:,0]
 
-            if x[-1] > self.deposition_len:
+            if x[-1] > r_ionizer + channel_len:
                 self.ions_pass_flag[i] = 1
             else:
                 self.ions_pass_flag[i] = 0
