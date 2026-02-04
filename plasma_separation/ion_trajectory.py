@@ -12,6 +12,7 @@ import os
 import sys
 import h5py
 import matplotlib.animation as animation
+from openpmd_viewer import OpenPMDTimeSeries
 
 
 _load_save_filename = "trajectories.npz"
@@ -33,6 +34,7 @@ def load_from_dir(dirpath, remove_original=False):
 
     comsol_filename = "ion_trajectories_comsol.csv"
     openmm_filename = "ion_trajectories_openmm.h5"
+    warpx_filename = "ion_trajectories_warpx"
 
     if _load_save_filename in paths:
         return IonTrajectories.load(dirpath)
@@ -47,11 +49,16 @@ def load_from_dir(dirpath, remove_original=False):
         traj.save(dirpath)
         if remove_original:
             os.remove(os.path.join(dirpath, openmm_filename))
+    elif warpx_filename in paths:
+        traj = import_from_warpx_file_new(os.path.join(dirpath, warpx_filename, 'openpmd.h5'))
+        traj.save(dirpath)
+        if remove_original:
+            os.remove(os.path.join(dirpath, warpx_filename))
     else:
         raise Exception(f"Can't find trajectories file in the directory {dirpath}.")
 
     return traj
-
+  
 
 def import_from_comsol_file(filepath):
     """
@@ -93,7 +100,45 @@ def import_from_comsol_file(filepath):
     ions_mass = ions_mass[valid_indices]
     return IonTrajectories(poses, vels, ts, ions_mass)
 
+def import_from_warpx_file_new(filepath):
+    SPEED_OF_LIGHT = 299792458
+    Da = 1.66053906892e-27
+    poses = {}
+    vels = {}
+    ts = []
+    ions_mass = []
+    with h5py.File(filepath, "r") as f:
+        ids = list(f["data"]['0']['particles']['ions']['id'])
+        for id in ids:
+            poses[id] = np.full((len(f['data'].keys()),3), np.nan)
+            vels[id] = np.full((len(f['data'].keys()),3), np.nan)
 
+        ions_mass = np.array([f["data"]['0']['particles']['ions']['mass'].attrs['value']] * len(poses.keys())) / Da
+        iterations = list(f['data'].keys())
+        iterations = [int(v) for v in iterations]
+        iterations.sort()
+        iterations = [str(v) for v in iterations]
+        for it_num, iteration in enumerate(iterations):
+            ids = list(f["data"][iteration]['particles']['ions']['id'])
+
+            x = f["data"][iteration]['particles']['ions']['position']['x'] 
+            y = f["data"][iteration]['particles']['ions']['position']['y']
+            z = f["data"][iteration]['particles']['ions']['position']['z']
+            ux = f["data"][iteration]['particles']['ions']['momentum']['x']
+            uy = f["data"][iteration]['particles']['ions']['momentum']['y']
+            uz = f["data"][iteration]['particles']['ions']['momentum']['z']
+
+            for id_num, id in enumerate(ids):
+                poses[id][it_num] = [x[id_num], y[id_num], z[id_num]]
+                vels[id][it_num] = [ux[id_num]* SPEED_OF_LIGHT, uy[id_num]* SPEED_OF_LIGHT, uz[id_num]* SPEED_OF_LIGHT]
+        ts = [f['data'][iteration].attrs['time'] for iteration in iterations]
+        poses_array = []
+        vels_array = []
+
+        for id in poses.keys():
+            poses_array.append(poses[id])
+            vels_array.append(vels[id])
+    return IonTrajectories(np.array(poses_array) * 100, vels_array, np.array(ts) * 1e6, ions_mass)
 def import_from_openmm_file(filepath):
     """
     Import ion trajectories data from a OPENMM-generated ??? file and create an IonTrajectories instance.
