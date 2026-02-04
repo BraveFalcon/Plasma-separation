@@ -12,7 +12,6 @@ import os
 import sys
 import h5py
 import matplotlib.animation as animation
-from openpmd_viewer import OpenPMDTimeSeries
 
 
 _load_save_filename = "trajectories.npz"
@@ -101,6 +100,8 @@ def import_from_comsol_file(filepath):
     return IonTrajectories(poses, vels, ts, ions_mass)
 
 def import_from_warpx_file_new(filepath):
+    from openpmd_viewer import OpenPMDTimeSeries
+        
     SPEED_OF_LIGHT = 299792458
     Da = 1.66053906892e-27
     poses = {}

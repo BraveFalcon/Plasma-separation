@@ -10,19 +10,22 @@ class IonChannel:
         self,
         ion_trajectory: IonTrajectories,
         width = 5.0,
+        bias = 0.0,
         ionizer_R = 15.0,
         indent = 4.0,
         channel_len = 10.0
     ):
         """
-        Initialize the IonChannel class with width, ionizer radius, ion trajectory data.
+        Initialize the IonChannel class with width, bias, ionizer radius, ion trajectory data.
 
         Parameters:
         ion_trajectory (IonTrajectories): The ions trajectory data.
         width (float): The width of the channel in cm.
+        bias (float): Distance between channel middle axis and ionizer center.
         ionizer_R (float): The radius of cylindrical ionizer in cm.
         """
         self.width = width
+        self.bias = bias
         self.ionizer_R = ionizer_R
         self.indent = indent
         self.len = channel_len
@@ -62,7 +65,7 @@ class IonChannel:
             first_wall_pass_index = 0
             while first_wall_pass_index < len(x) and (
                 r[first_wall_pass_index] < r_ionizer
-                or abs(y[first_wall_pass_index]) < self.width /2
+                or abs(y[first_wall_pass_index]-self.bias) < self.width /2
                 or x[first_wall_pass_index] < (r_ionizer**2 - 0 * (self.width/2)**2)**0.5
                 or x[first_wall_pass_index] > r_ionizer + channel_len
             ):
