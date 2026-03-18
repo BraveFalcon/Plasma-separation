@@ -12,7 +12,6 @@ import os
 import sys
 import h5py
 import matplotlib.animation as animation
-from openpmd_viewer import OpenPMDTimeSeries
 
 
 _load_save_filename = "trajectories.npz"
