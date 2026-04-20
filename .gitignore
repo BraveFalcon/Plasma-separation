@@ -1,2 +1,10 @@
-plasma_separation/__pycache__
-test
+*/__pycache__
+*.npz
+*.h5
+*.mp4
+*.csv
+*.jpeg
+*.png
+*.pdb
+*.dcd
+*.jpg
