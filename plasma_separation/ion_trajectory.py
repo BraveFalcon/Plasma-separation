@@ -33,6 +33,8 @@ def load_from_dir(dirpath, remove_original=False):
 
     comsol_filename = "ion_trajectories_comsol.csv"
     openmm_filename = "ion_trajectories_openmm.h5"
+    warpx_filename_moving = "ion_trajectories_warpx"
+    warpx_filename_deposited = "ions_on_walls"
 
     if _load_save_filename in paths:
         return IonTrajectories.load(dirpath)
@@ -47,11 +49,19 @@ def load_from_dir(dirpath, remove_original=False):
         traj.save(dirpath)
         if remove_original:
             os.remove(os.path.join(dirpath, openmm_filename))
+    elif (warpx_filename_moving in paths):
+        if(warpx_filename_deposited in paths):
+          traj = import_from_warpx_files([os.path.join(dirpath, warpx_filename_moving, 'openpmd.h5'), os.path.join(dirpath, warpx_filename_deposited, 'particles_at_eb/openpmd.h5')])
+        else:
+          traj = import_from_warpx_files([os.path.join(dirpath, warpx_filename_moving, 'openpmd.h5')])
+        traj.save(dirpath)
+        if remove_original:
+            os.remove(os.path.join(dirpath, warpx_filename))
     else:
         raise Exception(f"Can't find trajectories file in the directory {dirpath}.")
 
     return traj
-
+  
 
 def import_from_comsol_file(filepath):
     """
@@ -93,7 +103,66 @@ def import_from_comsol_file(filepath):
     ions_mass = ions_mass[valid_indices]
     return IonTrajectories(poses, vels, ts, ions_mass)
 
+def import_from_warpx_files(files_names):
+    SPEED_OF_LIGHT = 299792458
+    Da = 1.66053906892e-27
+    poses = {}
+    vels = {}
+    ts = []
+    ions_mass = []
+    flag_first_read = True
+    iterations_run = []
+    
+    for file_name in files_names:
+        with h5py.File(file_name, "r") as f:
+              iterations = list(f['data'].keys())
+              iterations = [int(v) for v in iterations]
+              iterations.sort()
+              iterations = [str(v) for v in iterations]
+              ids = list(f["data"][iterations[0]]['particles']['ions']['id'])
+              
+              if(flag_first_read):
+                  for id in ids:
+                      poses[id] = {}
+                      vels[id] = {}
+              for iteration in iterations:
+                  ids = list(f["data"][iteration]['particles']['ions']['id'])
 
+                  x = f["data"][iteration]['particles']['ions']['position']['x'] 
+                  y = f["data"][iteration]['particles']['ions']['position']['y']
+                  z = f["data"][iteration]['particles']['ions']['position']['z']
+                  ux = f["data"][iteration]['particles']['ions']['momentum']['x']
+                  uy = f["data"][iteration]['particles']['ions']['momentum']['y']
+                  uz = f["data"][iteration]['particles']['ions']['momentum']['z']
+
+                  for id_num, id in enumerate(ids):
+                      poses[id][iteration] = [x[id_num], y[id_num], z[id_num]]
+                      vels[id][iteration] = [ux[id_num]* SPEED_OF_LIGHT, uy[id_num]* SPEED_OF_LIGHT, uz[id_num]* SPEED_OF_LIGHT]
+              if(flag_first_read):
+                  iterations_run = iterations
+                  ts = [f['data'][iteration].attrs['time'] for iteration in iterations]
+                  ions_mass = np.array([f["data"][iterations[0]]['particles']['ions']['mass'].attrs['value']] * len(poses.keys())) / Da
+              flag_first_read = False
+    poses_array = []
+    vels_array = []
+    for id in poses.keys():
+        iterations = list(poses[id].keys())
+        iterations = [int(v) for v in iterations]
+        iterations.sort()
+        iterations = [str(v) for v in iterations]
+        highest_iteration = iterations[-1]
+        poses_array_tmp = []
+        vels_array_tmp = []
+        for iteration in iterations_run:
+            if (iteration in iterations):
+                poses_array_tmp.append(poses[id][iteration])
+                vels_array_tmp.append(vels[id][iteration])
+            else:
+                poses_array_tmp.append(poses[id][highest_iteration])
+                vels_array_tmp.append(vels[id][highest_iteration])
+        poses_array.append(poses_array_tmp)
+        vels_array.append(vels_array_tmp)
+    return IonTrajectories(np.array(poses_array) * 100, np.array(vels_array), np.array(ts) * 1e6, ions_mass)
 def import_from_openmm_file(filepath):
     """
     Import ion trajectories data from a OPENMM-generated ??? file and create an IonTrajectories instance.
