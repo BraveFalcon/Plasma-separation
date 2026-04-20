@@ -468,7 +468,12 @@ def animate_trajectories_2d(ax, ion_positions, ion_colors, frames_per_second):
         return lines
 
     ani = animation.FuncAnimation(
-        ax.figure, update, frames=ion_positions.shape[1], fargs=(ion_positions, lines), interval=1000/frames_per_second, blit=True
+        ax.figure,
+        update,
+        frames=ion_positions.shape[1],
+        fargs=(ion_positions, lines),
+        interval=1000 / frames_per_second,
+        blit=True,
     )
     return ani
 
