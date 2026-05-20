@@ -104,8 +104,6 @@ def import_from_comsol_file(filepath):
     return IonTrajectories(poses, vels, ts, ions_mass)
 
 def import_from_warpx_files(files_names):
-    SPEED_OF_LIGHT = 299792458
-    Da = 1.66053906892e-27
     poses = {}
     vels = {}
     ts = []
@@ -131,17 +129,19 @@ def import_from_warpx_files(files_names):
                   x = f["data"][iteration]['particles']['ions']['position']['x'] 
                   y = f["data"][iteration]['particles']['ions']['position']['y']
                   z = f["data"][iteration]['particles']['ions']['position']['z']
-                  ux = f["data"][iteration]['particles']['ions']['momentum']['x']
-                  uy = f["data"][iteration]['particles']['ions']['momentum']['y']
-                  uz = f["data"][iteration]['particles']['ions']['momentum']['z']
+                  
+                  ions_mass = np.array([f["data"][iterations[0]]['particles']['ions']['mass'].attrs['value']] * len(poses.keys()))
+                  ux = f["data"][iteration]['particles']['ions']['momentum']['x'] /  ions_mass
+                  uy = f["data"][iteration]['particles']['ions']['momentum']['y'] /  ions_mass
+                  uz = f["data"][iteration]['particles']['ions']['momentum']['z'] /  ions_mass
 
                   for id_num, id in enumerate(ids):
                       poses[id][iteration] = [x[id_num], y[id_num], z[id_num]]
-                      vels[id][iteration] = [ux[id_num]* SPEED_OF_LIGHT, uy[id_num]* SPEED_OF_LIGHT, uz[id_num]* SPEED_OF_LIGHT]
+                      vels[id][iteration] = [ux[id_num], uy[id_num], uz[id_num]]
               if(flag_first_read):
                   iterations_run = iterations
                   ts = [f['data'][iteration].attrs['time'] for iteration in iterations]
-                  ions_mass = np.array([f["data"][iterations[0]]['particles']['ions']['mass'].attrs['value']] * len(poses.keys())) / Da
+                  ions_mass = np.array([f["data"][iterations[0]]['particles']['ions']['mass'].attrs['value']] * len(poses.keys())) / scipy.constants.physical_constants['atomic mass constant'][0]
               flag_first_read = False
     poses_array = []
     vels_array = []
